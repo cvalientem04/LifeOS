@@ -1,26 +1,98 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-base: #070a0f;
+  --color-card: #111621;
+  --color-card-hover: #19202e;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+
+  --color-emerald-500: #10b981;
+  --color-emerald-400: #34d399;
+  --color-emerald-300: #6ee7b7;
+  --color-cyan-500: #06b6d4;
+  --color-cyan-400: #22d3ee;
+  --color-amber-500: #f59e0b;
+  --color-amber-400: #fbbf24;
+  --color-violet-500: #8b5cf6;
+  --color-violet-400: #a78bfa;
+  --color-rose-500: #ef4444;
+  --color-slate-950: #020617;
+
+  --font-sans: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: var(--font-mono), 'JetBrains Mono', monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ─── BASE ─────────────────────────────────────────────────────────────────── */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #070a0f;
+  color: #f8fafc;
+  -webkit-tap-highlight-color: transparent;
 }
+
+/* ─── STUDIO CARD ─────────────────────────────────────────────────────────── */
+.studio-card {
+  background: #111621;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5);
+}
+
+/* ─── STUDIO INPUT ────────────────────────────────────────────────────────── */
+.studio-input {
+  background: #19202e;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  transition: border-color 0.15s;
+}
+.studio-input:focus {
+  border-color: #10b981;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+.studio-input::placeholder { color: #475569; }
+
+/* ─── BOTTOM DOCK ─────────────────────────────────────────────────────────── */
+.bottom-dock {
+  background: rgba(15, 20, 30, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.7);
+}
+
+/* ─── SERIES COMPLETADA ───────────────────────────────────────────────────── */
+.set-row-done {
+  background: linear-gradient(90deg, rgba(16,185,129,0.22) 0%, rgba(16,185,129,0.06) 100%);
+  border-color: rgba(16, 185, 129, 0.45) !important;
+}
+
+/* ─── GPS PULSE DOT ────────────────────────────────────────────────────────── */
+@keyframes gps-pulse {
+  0%   { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+.gps-dot {
+  width: 14px;
+  height: 14px;
+  background: #10b981;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  position: relative;
+}
+.gps-dot::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid #10b981;
+  animation: gps-pulse 1.5s ease-out infinite;
+}
+
+/* ─── SCROLLBAR ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
+
+/* ─── LEAFLET DARK FIX ─────────────────────────────────────────────────────── */
+.leaflet-container { background: #0f172a !important; }
+.leaflet-tile-pane { filter: brightness(0.85) saturate(0.9); }
