@@ -22,7 +22,7 @@ export function WeeklyTab() {
       workouts: d.workouts,
       turkeyDone,
     })
-    return { date, label: dayLabel(date), ...d, turkeyDone, score }
+    return { ...d, label: dayLabel(date), turkeyDone, score }
   })
 
   const avgScore = Math.round(weekData.reduce((s, d) => s + d.score, 0) / 7)
