@@ -63,11 +63,20 @@ export function BikeTab() {
 
     watchId.current = navigator.geolocation.watchPosition(
       (pos) => {
-        const { latitude: lat, longitude: lng, speed } = pos.coords
-        const kmh = speed ? speed * 3.6 : 0
-        const newCoord: RouteCoord = { lat, lng, speedKmh: kmh, ts: Date.now() }
+        const { latitude: lat, longitude: lng, speed, accuracy } = pos.coords
+        setGpsStatus(`🟢 GPS activo (±${Math.round(accuracy)}m)`)
+        let kmh = speed && speed >= 0 ? speed * 3.6 : 0
 
         setCoords((prev) => {
+          if (prev.length > 0 && (!speed || speed < 0)) {
+            const last = prev[prev.length - 1]
+            const dtSec = Math.max(1, (Date.now() - last.ts) / 1000)
+            const dKm = haversineKm(last, { lat, lng, speedKmh: 0, ts: Date.now() })
+            kmh = (dKm / (dtSec / 3600))
+          }
+          kmh = Math.min(65, Math.max(0, kmh))
+
+          const newCoord: RouteCoord = { lat, lng, speedKmh: Math.round(kmh * 10) / 10, ts: Date.now() }
           const updated = [...prev, newCoord]
           if (prev.length > 0) {
             const seg = haversineKm(prev[prev.length - 1], newCoord)
@@ -83,7 +92,7 @@ export function BikeTab() {
         })
       },
       (err) => setGpsStatus(`⚠️ ${err.message}`),
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
     )
   }
 

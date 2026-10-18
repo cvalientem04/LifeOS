@@ -6,21 +6,36 @@ import { speedToColor } from '@/lib/utils'
 
 interface Props {
   coords: RouteCoord[]
+  onCenterMe?: () => void
 }
 
 export default function GPSMap({ coords }: Props) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
-  const polylineRef = useRef<any>(null)
+  const pathLayerGroupRef = useRef<any>(null)
   const markerRef = useRef<any>(null)
+
+  const centerOnUser = () => {
+    if (!mapInstanceRef.current || !navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords
+        mapInstanceRef.current.setView([lat, lng], 16)
+        if (markerRef.current) {
+          markerRef.current.setLatLng([lat, lng])
+        }
+      },
+      (err) => console.warn('GPS error:', err),
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined' || !mapRef.current) return
-    if (mapInstanceRef.current) return  // already initialized
+    if (mapInstanceRef.current) return
 
-    // Dynamic import of Leaflet
     import('leaflet').then((L) => {
-      // Fix Leaflet default icons
+      // Fix marker icon issue
       delete (L.Icon.Default.prototype as any)._getIconUrl
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -29,8 +44,8 @@ export default function GPSMap({ coords }: Props) {
       })
 
       const map = L.map(mapRef.current!, {
-        center: [40.4168, -3.7038],
-        zoom: 13,
+        center: [39.5696, 2.6502], // Default view
+        zoom: 14,
         zoomControl: true,
       })
 
@@ -39,56 +54,111 @@ export default function GPSMap({ coords }: Props) {
         maxZoom: 19,
       }).addTo(map)
 
+      pathLayerGroupRef.current = L.layerGroup().addTo(map)
       mapInstanceRef.current = map
 
-      // Try to center on user
-      navigator.geolocation?.getCurrentPosition((pos) => {
-        map.setView([pos.coords.latitude, pos.coords.longitude], 15)
-      })
+      // Crucial: Leaflet needs invalidateSize once container is rendered in DOM
+      setTimeout(() => {
+        map.invalidateSize()
+      }, 250)
+
+      // Geolocation prompt & center
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const latlng = [pos.coords.latitude, pos.coords.longitude] as [number, number]
+            map.setView(latlng, 16)
+            const gpsDot = L.divIcon({
+              className: '',
+              html: '<div class="gps-dot"></div>',
+              iconSize: [16, 16],
+              iconAnchor: [8, 8],
+            })
+            markerRef.current = L.marker(latlng, { icon: gpsDot }).addTo(map)
+          },
+          () => {},
+          { enableHighAccuracy: true, timeout: 8000 }
+        )
+      }
     })
+
+    // Cleanup on unmount
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+      }
+    }
   }, [])
 
-  // Update polyline when coords change
+  // Invalidate size on resize
   useEffect(() => {
-    if (!mapInstanceRef.current || coords.length < 2) return
+    if (!mapRef.current) return
+    const ro = new ResizeObserver(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize()
+      }
+    })
+    ro.observe(mapRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  // Update polylines when coords change
+  useEffect(() => {
+    if (!mapInstanceRef.current || !pathLayerGroupRef.current) return
 
     import('leaflet').then((L) => {
       const map = mapInstanceRef.current
+      const layerGroup = pathLayerGroupRef.current
 
-      // Draw colored segments
-      for (let i = 1; i < coords.length; i++) {
-        const a = coords[i - 1]
-        const b = coords[i]
-        const color = speedToColor((a.speedKmh + b.speedKmh) / 2)
-        L.polyline([[a.lat, a.lng], [b.lat, b.lng]], {
-          color,
-          weight: 4,
-          opacity: 0.9,
-        }).addTo(map)
+      layerGroup.clearLayers()
+
+      if (coords.length >= 2) {
+        for (let i = 1; i < coords.length; i++) {
+          const a = coords[i - 1]
+          const b = coords[i]
+          const color = speedToColor((a.speedKmh + b.speedKmh) / 2)
+          L.polyline([[a.lat, a.lng], [b.lat, b.lng]], {
+            color,
+            weight: 5,
+            opacity: 0.95,
+          }).addTo(layerGroup)
+        }
       }
 
-      // Live marker
-      const last = coords[coords.length - 1]
-      if (markerRef.current) {
-        markerRef.current.setLatLng([last.lat, last.lng])
-      } else {
-        const gpsDot = L.divIcon({
-          className: '',
-          html: '<div class="gps-dot"></div>',
-          iconSize: [14, 14],
-          iconAnchor: [7, 7],
-        })
-        markerRef.current = L.marker([last.lat, last.lng], { icon: gpsDot }).addTo(map)
+      if (coords.length > 0) {
+        const last = coords[coords.length - 1]
+        if (markerRef.current) {
+          markerRef.current.setLatLng([last.lat, last.lng])
+        } else {
+          const gpsDot = L.divIcon({
+            className: '',
+            html: '<div class="gps-dot"></div>',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+          })
+          markerRef.current = L.marker([last.lat, last.lng], { icon: gpsDot }).addTo(map)
+        }
+        map.panTo([last.lat, last.lng])
       }
-
-      map.panTo([last.lat, last.lng])
     })
   }, [coords])
 
   return (
-    <div
-      ref={mapRef}
-      style={{ height: 350, width: '100%', borderRadius: '1rem', zIndex: 10, border: '1px solid rgba(255,255,255,0.12)' }}
-    />
+    <div className="relative w-full rounded-2xl overflow-hidden border border-white/10 shadow-lg">
+      <div
+        ref={mapRef}
+        className="w-full h-[360px] bg-slate-900"
+      />
+      <button
+        type="button"
+        onClick={centerOnUser}
+        title="Centrar mi ubicación"
+        className="absolute top-3 right-3 z-[400] bg-slate-900/90 hover:bg-slate-800 text-cyan-400 border border-cyan-500/30 p-2.5 rounded-xl shadow-lg backdrop-blur-md text-xs font-bold flex items-center gap-1.5 transition-all"
+      >
+        <span>🎯</span>
+        <span>Mi Ubicación</span>
+      </button>
+    </div>
   )
 }
